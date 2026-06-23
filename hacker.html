@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚠️ 安全警告 - 你的信息已被窃取</title>
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --terminal-bg: #0d1117;
+            --green: #00ff41;
+            --red: #ff1a1a;
+            --dark-red: #8b0000;
+            --glow-green: #00ff4180;
+            --glow-red: #ff1a1a66;
+            --text: #c9d1d9;
+            --border: #1f2937;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg);
+            font-family: 'Courier New', 'Source Code Pro', 'Consolas', 'Monaco', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            cursor: crosshair;
+            user-select: none;
+            -webkit-user-select: none;
+            position: relative;
+        }
+
+        /* ============ 矩阵雨背景 ============ */
+        #matrix-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.45;
+        }
+
+        /* ============ 扫描线效果 ============ */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+            background: repeating-linear-gradient(0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0, 0, 0, 0.03) 2px,
+                    rgba(0, 0, 0, 0.03) 4px);
+        }
+
+        /* ============ 主容器 ============ */
+        .main-container {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+            padding: 20px;
+        }
+
+        /* ============ 终端窗口 ============ */
+        .terminal-window {
+            background: var(--terminal-bg);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            width: 520px;
+            max-width: 95vw;
+            box-shadow:
+                0 0 30px var(--glow-red),
+                0 0 60px rgba(255, 26, 26, 0.2),
+                0 0 120px rgba(255, 26, 26, 0.08),
+                0 20px 60px rgba(0, 0, 0, 0.7);
+            overflow: hidden;
+            animation: terminalPulse 3s ease-in-out infinite;
+            position: relative;
+        }
+
+        @keyframes terminalPulse {
+            0%,
+            100% {
+                box-shadow: 0 0 30px var(--glow-red), 0 0 60px rgba(255, 26, 26, 0.2), 0 0 120px rgba(255, 26, 26, 0.08), 0 20px 60px rgba(0, 0, 0, 0.7);
+            }
+            50% {
+                box-shadow: 0 0 45px rgba(255, 26, 26, 0.7), 0 0 80px rgba(255, 26, 26, 0.35), 0 0 150px rgba(255, 26, 26, 0.15), 0 20px 60px rgba(0, 0, 0, 0.7);
+            }
+        }
+
+        /* 终端标题栏 */
+        .terminal-header {
+            background: #161b22;
+            border-bottom: 1px solid var(--border);
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .terminal-dots {
+            display: flex;
+            gap: 8px;
+        }
+        .terminal-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+        .terminal-dot.red {
+            background: #ff5f56;
+            box-shadow: 0 0 8px #ff5f5688;
+        }
+        .terminal-dot.yellow {
+            background: #ffbd2e;
+            box-shadow: 0 0 8px #ffbd2e88;
+        }
+        .terminal-dot.green {
+            background: #27c93f;
+            box-shadow: 0 0 8px #27c93f88;
+        }
+        .terminal-dot.red {
+            animation: dotBlinkRed 1.5s ease-in-out infinite;
+        }
+        @keyframes dotBlinkRed {
+            0%,
+            100% {
+                box-shadow: 0 0 8px #ff5f5688;
+            }
+            50% {
+                box-shadow: 0 0 20px #ff5f56, 0 0 35px #ff5f5688;
+            }
+        }
+
+        .terminal-title {
+            color: #8b949e;
+            font-size: 13px;
+            letter-spacing: 1px;
+            margin-left: 8px;
+        }
+
+        /* 终端内容 */
+        .terminal-body {
+            padding: 20px 24px 28px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 18px;
+            position: relative;
+        }
+
+        /* ============ GIF 容器 ============ */
+        .gif-container {
+            position: relative;
+            width: 260px;
+            height: 260px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 3px solid #2a2a2a;
+            box-shadow:
+                0 0 25px rgba(255, 26, 26, 0.45),
+                0 0 50px rgba(255, 26, 26, 0.2),
+                inset 0 0 30px rgba(0, 0, 0, 0.4);
+            animation: gifGlow 2s ease-in-out infinite;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @keyframes gifGlow {
+            0%,
+            100% {
+                box-shadow: 0 0 25px rgba(255, 26, 26, 0.45), 0 0 50px rgba(255, 26, 26, 0.2), inset 0 0 30px rgba(0, 0, 0, 0.4);
+            }
+            50% {
+                box-shadow: 0 0 40px rgba(255, 26, 26, 0.7), 0 0 70px rgba(255, 26, 26, 0.35), inset 0 0 40px rgba(0, 0, 0, 0.5);
+            }
+        }
+
+        .gif-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transition: transform 0.3s;
+        }
+        .gif-container:hover img {
+            transform: scale(1.05);
+        }
+
+        /* 黑客图标覆盖层 */
+        .hacker-icon-overlay {
+            position: absolute;
+            top: -15px;
+            right: -15px;
+            font-size: 36px;
+            animation: bounceIcon 1s ease-in-out infinite;
+            filter: drop-shadow(0 0 10px rgba(255, 26, 26, 0.8));
+            z-index: 5;
+            pointer-events: none;
+        }
+        @keyframes bounceIcon {
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-12px);
+            }
+        }
+
+        /* ============ 警告文字 ============ */
+        .warning-text-wrapper {
+            text-align: center;
+            position: relative;
+        }
+
+        .warning-text {
+            color: var(--red);
+            font-size: 1.35rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            text-shadow:
+                0 0 10px var(--red),
+                0 0 25px var(--red),
+                0 0 50px var(--dark-red),
+                0 0 80px rgba(255, 26, 26, 0.5);
+            animation: textFlicker 0.15s infinite alternate,
+                textGlow 2s ease-in-out infinite;
+            line-height: 1.6;
+            text-align: center;
+        }
+
+        @keyframes textFlicker {
+            0%,
+            19%,
+            21%,
+            23%,
+            25%,
+            54%,
+            56%,
+            100% {
+                opacity: 1;
+            }
+            20%,
+            24%,
+            55% {
+                opacity: 0.4;
+            }
+        }
+        @keyframes textGlow {
+            0%,
+            100% {
+                text-shadow: 0 0 10px var(--red), 0 0 25px var(--red), 0 0 50px var(--dark-red), 0 0 80px rgba(255, 26, 26, 0.5);
+            }
+            50% {
+                text-shadow: 0 0 20px var(--red), 0 0 40px var(--red), 0 0 70px var(--dark-red), 0 0 110px rgba(255, 26, 26, 0.7);
+            }
+        }
+
+        /* 光标闪烁 */
+        .cursor-blink {
+            display: inline-block;
+            width: 3px;
+            height: 1.2em;
+            background: var(--red);
+            margin-left: 4px;
+            vertical-align: text-bottom;
+            animation: cursorBlink 0.8s step-end infinite;
+            box-shadow: 0 0 8px var(--red);
+        }
+        @keyframes cursorBlink {
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0;
+            }
+        }
+
+        /* ============ 底部状态栏 ============ */
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: #8b949e;
+            font-size: 12px;
+            letter-spacing: 1px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 26, 26, 0.08);
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 26, 26, 0.25);
+            transition: all 0.3s;
+        }
+        .status-item:hover {
+            background: rgba(255, 26, 26, 0.18);
+            border-color: rgba(255, 26, 26, 0.5);
+            box-shadow: 0 0 15px rgba(255, 26, 26, 0.2);
+        }
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #ff5f56;
+            animation: dotBlinkRed 1.5s ease-in-out infinite;
+        }
+
+        /* ============ 飘落粒子 ============ */
+        .particles-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
+        .particle {
+            position: absolute;
+            color: var(--red);
+            font-size: 14px;
+            opacity: 0;
+            animation: particleFall linear infinite;
+            text-shadow: 0 0 6px var(--red);
+        }
+        @keyframes particleFall {
+            0% {
+                transform: translateY(-10vh) translateX(0) rotate(0deg);
+                opacity: 0;
+            }
+            5% {
+                opacity: 0.9;
+            }
+            80% {
+                opacity: 0.5;
+            }
+            100% {
+                transform: translateY(105vh) translateX(60px) rotate(720deg);
+                opacity: 0;
+            }
+        }
+
+        /* ============ 响应式 ============ */
+        @media (max-width: 560px) {
+            .terminal-window {
+                width: 95vw;
+            }
+            .gif-container {
+                width: 180px;
+                height: 180px;
+            }
+            .warning-text {
+                font-size: 1rem;
+                letter-spacing: 1px;
+            }
+            .terminal-body {
+                padding: 14px 12px 20px;
+                gap: 12px;
+            }
+            .status-bar {
+                gap: 8px;
+                font-size: 10px;
+            }
+            .status-item {
+                padding: 4px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 矩阵雨画布 -->
+    <canvas id="matrix-canvas"></canvas>
+
+    <!-- 扫描线 -->
+    <div class="scanlines"></div>
+
+    <!-- 飘落粒子 -->
+    <div class="particles-container" id="particlesContainer"></div>
+
+    <!-- 主容器 -->
+    <div class="main-container">
+        <!-- 终端窗口 -->
+        <div class="terminal-window">
+            <!-- 标题栏 -->
+            <div class="terminal-header">
+                <div class="terminal-dots">
+                    <div class="terminal-dot red"></div>
+                    <div class="terminal-dot yellow"></div>
+                    <div class="terminal-dot green"></div>
+                </div>
+                <span class="terminal-title">⚠ ROOT TERMINAL — 安全警告</span>
+            </div>
+
+            <!-- 内容区 -->
+            <div class="terminal-body">
+                <!-- GIF 容器 -->
+                <div class="gif-container">
+                    <!-- 
+                    ⚠️ 图片路径说明：
+                    - 本地绝对路径示例：src="file:///E:/847b832e88ac2091d1c36faad780d7b6.gif"
+                    - 如果HTML和GIF在同一文件夹，直接写文件名即可：src="847b832e88ac2091d1c36faad780d7b6.gif"
+                    - 如需使用网络图片，请替换为以 .gif 结尾的直链
+                    -->
+                    <img src="file:///E:/847b832e88ac2091d1c36faad780d7b6.gif" 
+                         alt="黑客坏笑"
+                         onerror="this.parentElement.innerHTML='<div style=color:#ff1a1a;text-align:center;padding:20px;font-size:14px;>⚠️<br>图片加载失败<br>请检查路径<br><small style=color:#888;>当前路径：E:/847b832e88ac2091d1c36faad780d7b6.gif</small></div>'"
+                    />
+                    <div class="hacker-icon-overlay">💀</div>
+                </div>
+
+                <!-- 警告文字 -->
+                <div class="warning-text-wrapper">
+                    <p class="warning-text">
+                        ⚡ 恭喜，你的信息是我的了 ⚡
+                        <span class="cursor-blink"></span>
+                    </p>
+                </div>
+
+                <!-- 底部状态栏 -->
+                <div class="status-bar">
+                    <div class="status-item">
+                        <span class="status-dot"></span>
+                        <span>数据窃取中...</span>
+                    </div>
+                    <div class="status-item">
+                        <span>🔒 已加密</span>
+                    </div>
+                    <div class="status-item">
+                        <span>📁 99%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============ 矩阵雨效果 ============
+        (function() {
+            const canvas = document.getElementById('matrix-canvas');
+            const ctx = canvas.getContext('2d');
+
+            let width, height;
+            let columns;
+            let drops;
+            const fontSize = 14;
+            const chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789ABCDEF<>/{}[]|!@#$%^&*()_+-=';
+            const charArray = chars.split('');
+
+            function resizeCanvas() {
+                width = window.innerWidth;
+                height = window.innerHeight;
+                canvas.width = width;
+                canvas.height = height;
+                columns = Math.floor(width / fontSize);
+                drops = [];
+                for (let i = 0; i < columns; i++) {
+                    drops[i] = Math.floor(Math.random() * height / fontSize) * -1;
+                }
+            }
+
+            function draw() {
+                ctx.fillStyle = 'rgba(10, 10, 10, 0.06)';
+                ctx.fillRect(0, 0, width, height);
+
+                ctx.fillStyle = '#ff1a1a';
+                ctx.font = fontSize + 'px "Courier New", monospace';
+                ctx.shadowColor = '#ff1a1a';
+                ctx.shadowBlur = 8;
+
+                for (let i = 0; i < drops.length; i++) {
+                    const char = charArray[Math.floor(Math.random() * charArray.length)];
+                    const x = i * fontSize;
+                    const y = drops[i] * fontSize;
+
+                    const alpha = Math.random() * 0.6 + 0.4;
+                    ctx.fillStyle = `rgba(255, 26, 26, ${alpha})`;
+                    ctx.fillText(char, x, y);
+
+                    if (y > height && Math.random() > 0.975) {
+                        drops[i] = 0;
+                    }
+                    drops[i]++;
+                }
+
+                ctx.shadowBlur = 0;
+            }
+
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            setInterval(draw, 50);
+        })();
+
+        // ============ 飘落粒子 ============
+        (function() {
+            const container = document.getElementById('particlesContainer');
+            const particleChars = ['0', '1', '⚠', '☠', '💀', '⛔', '🔴', '✖', '⚡', '🔑', '📁', '💾', '🔓', '⏳', '░', '▓', '█'];
+
+            function createParticle() {
+                const particle = document.createElement('span');
+                particle.className = 'particle';
+                particle.textContent = particleChars[Math.floor(Math.random() * particleChars.length)];
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.fontSize = (Math.random() * 18 + 10) + 'px';
+                particle.style.animationDuration = (Math.random() * 8 + 6) + 's';
+                particle.style.animationDelay = Math.random() * 5 + 's';
+                container.appendChild(particle);
+
+                const duration = parseFloat(particle.style.animationDuration) + parseFloat(particle.style.animationDelay);
+                setTimeout(() => {
+                    if (particle.parentElement) {
+                        particle.remove();
+                    }
+                }, duration * 1000 + 500);
+            }
+
+            function spawnParticles() {
+                const count = Math.floor(Math.random() * 4) + 2;
+                for (let i = 0; i < count; i++) {
+                    setTimeout(createParticle, i * 200);
+                }
+            }
+
+            setInterval(spawnParticles, 1200);
+            for (let i = 0; i < 15; i++) {
+                setTimeout(createParticle, i * 300);
+            }
+        })();
+
+        // ============ 控制台输出（增强沉浸感） ============
+        console.log('%c⚠ 安全警告 %c| %c你的终端已被入侵',
+            'color: #ff1a1a; font-size: 24px; font-weight: bold;',
+            'color: #fff;',
+            'color: #ff1a1a; font-size: 16px;');
+        console.log('%c[!] 数据窃取模块已激活...', 'color: #ff5f56;');
+        console.log('%c[✓] 加密通道已建立', 'color: #27c93f;');
+        console.log('%c[✓] 目标信息已捕获', 'color: #27c93f;');
+        console.log('%c>>> 恭喜，你的信息是我的了 <<<', 'color: #ff1a1a; font-size: 18px; font-weight: bold;');
+    </script>
+</body>
+</html>
